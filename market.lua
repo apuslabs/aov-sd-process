@@ -108,11 +108,6 @@ Handlers.add(
     Handlers.utils.hasMatchingTag("Action", "Text-To-Image"),
     function(msg)
         local requestData = json.decode(msg.Data)
-        -- check if requesting
-        if CurrentRequestID then
-            Handlers.utils.reply("[Error] [403] " .. "Text-To-Image " .. requestData.aiModelID .. "Requesting")
-            return
-        end
         -- check request data item nil
         if not requestData.aiModelID or not requestData.params then
             Handlers.utils.reply("[Error] [400] " .. "Text-To-Image " .. requestData.aiModelID .. "Data Item Nil")
@@ -142,15 +137,15 @@ Handlers.add(
         end
         -- todo: sort by gpu price
         -- check token balance
-        local balance = Balances[msg.From] or 0
-        if balance < gpu.price then
-            Handlers.utils.reply("[Error] [403] " .. "Text-To-Image " .. requestData.aiModelID .. "Insufficient Balance")
-            return
-        end
+        -- local balance = Balances[msg.From] or 0
+        -- if balance < gpu.price then
+        --     Handlers.utils.reply("[Error] [403] " .. "Text-To-Image " .. requestData.aiModelID .. "Insufficient Balance")
+        --     return
+        -- end
         -- Send request to 0rbit
-        CurrentRequestID = GenerateRandomID(8)
+        local requestID = GenerateRandomID(8)
         -- set request record
-        AITask[CurrentRequestID] = {
+        AITask[requestID] = {
             From = msg.From,
             AIModelID = requestData.aiModelID,
             GPUID = gpu.id,
@@ -160,6 +155,13 @@ Handlers.add(
             RequestParams = requestData.params
         }
         Handlers.utils.reply("Text-To-Image " .. requestData.aiModelID .. "GPU " .. gpu.id)
+        ao.send({
+            Target = gpu.owner,
+            Action = "Text-To-Image",
+            Data = json.encode({
+                taskID = requestID
+            })
+        })
     end
 )
 
@@ -204,6 +206,16 @@ Handlers.add(
     function(msg)
         local data = json.decode(msg.Data)
         local record = AITask[data.taskID]
+        -- check record exist
+        if not record then
+            Handlers.utils.reply("[Error] [404] " .. "Receive-Response " .. data.taskID .. "Record Not Exist")
+            return
+        end
+        -- check owner match
+        if record.Recipient ~= msg.From then
+            Handlers.utils.reply("[Error] [403] " .. "Receive-Response " .. data.taskID .. "Owner Not Match")
+            return
+        end
         -- check response error
         if data.code ~= 200 then
             record.ResponseError = data.error
@@ -212,11 +224,62 @@ Handlers.add(
             return
         end
         -- transfer token
-        Send({ Target = ao.id, Action = "Transfer", Recipient = record.Recipient, Quantity = record.Price, From = record.From})
+        -- Send({ Target = ao.id, Action = "Transfer", Recipient = record.Recipient, Quantity = record.Price, From = record.From})
         -- set base64 img data
-        record.ResponseData = data
+        record.ResponseData = data.data
         resetRequestRecord(data.taskID)
-        print("You have received a response from the 0rbit process.")
+        Send({ Target = record.From, Action = "Text-To-Image-Response", Data = json.encode({
+            taskID = data.taskID,
+            data = data.data
+        })})
         print("Data: " .. json.encode(msg))
     end
 )
+
+Handlers.add("Get-GPU-List", Handlers.utils.hasMatchingTag("Action", "Get-GPU-List"), function(msg)
+  local UserGPUList = {}
+    for _, gpu in pairs(GPUList) do
+        if gpu.owner == msg.From then
+            table.insert(UserGPUList, gpu)
+        end
+    end
+    Handlers.utils.reply(json.encode(GPUList))
+end)
+
+Handlers.add("Get-GPU-Model-List", Handlers.utils.hasMatchingTag("Action", "Get-GPU-Model-List"), function(msg)
+    Handlers.utils.reply(json.encode(GPUModelList))
+end)
+
+Handlers.add("Get-AI-Model-List", Handlers.utils.hasMatchingTag("Action", "Get-AI-Model-List"), function(msg)
+    Handlers.utils.reply(json.encode(AIModelList))
+end)
+
+Handlers.add("Get-AI-Task-List", Handlers.utils.hasMatchingTag("Action", "Get-AI-Task-List"), function(msg)
+    local UserTaskList = {}
+    for _, task in pairs(AITask) do
+        if task.From == msg.From then
+            table.insert(UserTaskList, task)
+        end
+    end
+    Handlers.utils.reply(json.encode(AITask))
+end)
+
+Handlers.add("Get-AI-Pending-Task-List", Handlers.utils.hasMatchingTag("Action", "Get-User-Balance"), function(msg)
+    local pendingTaskList = {}
+    for _, task in pairs(AITask) do
+        if task.Status == "pending" then
+            table.insert(pendingTaskList, task)
+        end
+    end
+    Handlers.utils.reply(json.encode(pendingTaskList))
+end)
+
+Handlers.add("Get-AI-Processing-Task-List", Handlers.utils.hasMatchingTag("Action", "Get-User-Balance"), function(msg)
+    local processingTaskList = {}
+    for _, task in pairs(AITask) do
+        if task.Status == "processing" then
+            table.insert(processingTaskList, task)
+        end
+    end
+    Handlers.utils.reply(json.encode(processingTaskList))
+end)
