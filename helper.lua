@@ -1,4 +1,5 @@
 local math = require("math")
+local json = require("json")
 
 -- URL编码一个字符串
 local function urlencode(str)
@@ -36,4 +37,41 @@ function GenerateRandomID(length)
     end
 
     return table.concat(randomID)
+end
+
+
+-- Decode With Error Handler
+function JSONDecode(val)
+    local status, result = xpcall(
+        json.decode,
+        function(err)
+            print("[400] error: " .. err)
+        end,
+        val
+    )
+    if status then
+        return result
+    else
+        return {}
+    end
+end
+
+-- Filter
+function ArrayFilter(arr, filter)
+    local result = {}
+    for i, v in ipairs(arr) do
+        if filter(v) then
+            table.insert(result, v)
+        end
+    end
+    return result
+end
+function ObjectFilter(obj, filter)
+    local result = {}
+    for k, v in pairs(obj) do
+        if filter(k, v) then
+            result[k] = v
+        end
+    end
+    return result
 end
