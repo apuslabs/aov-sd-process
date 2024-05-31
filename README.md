@@ -239,7 +239,7 @@ Send({ Target = _APUS_TOKEN, Action = "Transfer", Recipient = _APUS, Quantity = 
 
 if success, you will receive Deposit-Receiption in your Inbox like
 ```
-
+You transferred 100 to 1x2lsMZVr67txPJVZ0OQT7qOGYVP-w9EWqcfF57d0Dc
 ```
 
 ### Check Balance
