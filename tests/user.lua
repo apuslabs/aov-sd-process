@@ -2,6 +2,8 @@ local json = require("json")
 
 _Apus_Process_ID = "1x2lsMZVr67txPJVZ0OQT7qOGYVP-w9EWqcfF57d0Dc"
 
+Handlers.add("Tet")
+
 Handlers.add("Text-To-Image", Handlers.utils.hasMatchingTag("Action", "Text-To-Image"), function(msg)
     local requestData = {}
     requestData.aiModelID = "096875a5-ed88-47ae-b420-895da26b4c53"

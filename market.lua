@@ -1,5 +1,8 @@
 local json = require("json")
 local utils = require(".utils")
+local bint = require('.bint')(256)
+
+_TOKEN_ADDRESS = "jZrx_R1zuvUq7TVLd8fyUHgYu_N4ZtXw5KsP743ZHtY"
 
 GPUModelList = GPUModelList or {}
 
@@ -99,6 +102,24 @@ Handlers.add(
 )
 
 AITask = AITask or {}
+FreeCredits = FreeCredits or {}
+
+MarketBalances = MarketBalances or {}
+
+local bintutils = {
+    add = function (a,b) 
+      return tostring(bint(a) + bint(b))
+    end,
+    subtract = function (a,b)
+      return tostring(bint(a) - bint(b))
+    end,
+    toBalanceValue = function (a)
+      return tostring(bint(a))
+    end,
+    toNumber = function (a)
+      return tonumber(a)
+    end
+  }
 
 -- Text-To-Image
 -- Request Data: {"aiModelID":"xxx","params": {}}
@@ -137,13 +158,24 @@ Handlers.add(
             Handlers.utils.reply("[Error] [403] " .. "Text-To-Image " .. requestData.aiModelID .. "No Available GPU")(msg)
             return
         end
-        -- todo: sort by gpu price
-        -- check token balance
-        -- local balance = Balances[msg.From] or 0
-        -- if balance < gpu.price then
-        --     Handlers.utils.reply("[Error] [403] " .. "Text-To-Image " .. requestData.aiModelID .. "Insufficient Balance")
-        --     return
-        -- end
+        -- TODO: sort by gpu price
+        -- check free credits
+        local freeCredit = FreeCredits[msg.From]
+        if freeCredit == nil then FreeCredits[msg.From] = 200 end
+        if freeCredit > gpu.price then
+            FreeCredits[msg.From] = freeCredit - gpu.price
+            return
+        else
+            -- check token balance
+            local balance = MarketBalances[msg.From] or 0
+            if bint(balance) < bint(gpu.price) then
+                Handlers.utils.reply("[Error] [403] " .. "Text-To-Image " .. requestData.aiModelID .. "Insufficient Balance")
+                return
+            else
+                MarketBalances[msg.From] = bintutils.subtract(balance, gpu.price)
+            end
+        end
+        
         -- Send request to 0rbit
         local requestID = GenerateRandomID(8)
         -- set request record
@@ -168,6 +200,7 @@ Handlers.add(
 )
 
 -- Accept-Task
+-- TODO cron task to clean pending & processing task
 Handlers.add(
   "Accept-Task",
   Handlers.utils.hasMatchingTag("Action", "Accept-Task"),
@@ -240,12 +273,15 @@ Handlers.add(
         -- check response error
         if data.code ~= 200 then
             record.ResponseError = data.error
+            -- return money to user
+            MarketBalances[record.Recipient] = bintutils.add(MarketBalances[record.Recipient], record.Price)
             resetRequestRecord(data.taskID)
             Handlers.utils.reply("[Error] [500] " .. "Receive-Response " .. data.error)(msg)
             return
+        else
+            -- pay to gpu owner
+            Send({ Target = _TOKEN_ADDRESS, Action = "Transfer", Recipient = record.Recipient, Quantity = record.Price })
         end
-        -- transfer token
-        -- Send({ Target = ao.id, Action = "Transfer", Recipient = record.Recipient, Quantity = record.Price, From = record.From})
         record.Status = "completed"
         record.ResponseData = data.data
         resetRequestRecord(data.taskID)
@@ -291,4 +327,18 @@ Handlers.add("Get-AI-Task-List", Handlers.utils.hasMatchingTag("Action", "Get-AI
         UserTaskList = ObjectFilter(UserTaskList, function(_, task) return task.GPUID == req.GPUID end)
     end
     Handlers.utils.reply(json.encode(UserTaskList))(msg)
+end)
+  
+
+Handlers.add("Charge", Handlers.utils.hasMatchingTag("Action", "Credit-Notice"),function (msg)
+    assert(type(msg.Quantity) == 'string', 'Quantity is required!')
+    assert(type(msg.Sender) == 'string', 'Sender is required!')
+    assert(msg.From == _TOKEN_ADDRESS, 'Only Accept Apus Token')
+    if not MarketBalances[msg.Sender] then MarketBalances[msg.Sender] = "0" end
+    MarketBalances[msg.Sender] = bintutils.add(MarketBalances[msg.Sender], msg.Quantity)
+    ao.send({
+        Target = msg.Sender,
+        Action = "Deposit-Receiption",
+        Quantity = msg.Quantity
+    })
 end)
