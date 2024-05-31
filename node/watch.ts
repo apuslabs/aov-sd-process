@@ -93,7 +93,7 @@ async function dryrunResult(tags: Record<string, string>, data: any) {
   }
 }
 
-async function fetchTasks(id: string) {
+async function fetchTasks() {
   const { Messages } = await dryrunResult({
     Action: "Get-AI-Task-List"
   }, {
@@ -129,7 +129,7 @@ async function receiveTask(task: any, code: number, res: any) {
 }
 
 async function processTask() {
-  const taskList: Record<string, any> = await fetchTasks(id)
+  const taskList: Record<string, any> = await fetchTasks()
   const tasks = Object.entries(taskList).map(([key, value]) => Object.assign(value, {id: key}))
   logger.info("To Process Task " + tasks.length)
   if (tasks.length) {
@@ -164,6 +164,7 @@ function intervalProcessTask() {
 
 async function main() {
   init()
+  logger.info("GPU ID " + id)
   intervalProcessTask()
 }
 
