@@ -1,4 +1,6 @@
 config/wallet.json
+config/id
 .DS_Store
 .vscode
 node_modules
+.env
