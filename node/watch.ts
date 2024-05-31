@@ -6,7 +6,7 @@ const PROCESS_ID = process.env.PROCESS_ID!
 import { readFileSync, writeFileSync } from "fs";
 import { join } from "path"
 import axios from 'axios'
-import aoconnect from "@permaweb/aoconnect";
+import * as aoconnect from "@permaweb/aoconnect";
 import { randomUUID } from 'crypto';
 
 import { logger } from './logger'

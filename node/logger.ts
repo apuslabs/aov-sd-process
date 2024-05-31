@@ -1,8 +1,8 @@
-import winston from "winston";
-import "winston-daily-rotate-file";
+import  *  as  winston  from  'winston';
+import DailyRotateFile from 'winston-daily-rotate-file';
 
 // 按天分割日志文件
-const dailyRotateFileTransport = new winston.transports.DailyRotateFile({
+const dailyRotateFileTransport = new DailyRotateFile({
   level: 'info',
   filename: './logs/log-%DATE%.log',
   datePattern: 'YYYY-MM-DD',
@@ -14,7 +14,7 @@ const dailyRotateFileTransport = new winston.transports.DailyRotateFile({
 });
 
 // 单独存储错误日志
-const errorTransport = new winston.transports.DailyRotateFile({
+const errorTransport = new DailyRotateFile({
   level: 'error',
   filename: './logs/error-%DATE%.log',
   datePattern: 'YYYY-MM-DD',
@@ -30,8 +30,8 @@ const consoleTransport = new winston.transports.Console({
   format: winston.format.combine(
     winston.format.colorize(),
     winston.format.simple(),
-    winston.format.timestamp(),
     winston.format.metadata(),
+    winston.format.timestamp(),
   )
 });
 
