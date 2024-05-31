@@ -3,14 +3,10 @@
     "target": "ESNext",
     "module": "commonjs",
     "outDir": "dist",
-    "rootDir": "src",
+    "rootDir": "node",
     "strict": true,
     "esModuleInterop": true
   },
-  "include": [
-    "src/**/*.ts",
-    "types/env.d.ts"
-  ],
   "exclude": [
     "node_modules"
   ]

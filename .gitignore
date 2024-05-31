@@ -4,3 +4,4 @@ config/id
 .vscode
 node_modules
 .env
+dist

@@ -6,18 +6,10 @@ const PROCESS_ID = process.env.PROCESS_ID!
 import { readFileSync, writeFileSync } from "fs";
 import { join } from "path"
 import axios from 'axios'
-import {
-  result,
-  results,
-  message,
-  spawn,
-  monitor,
-  unmonitor,
-  dryrun,
-  createDataItemSigner,
-} from "@permaweb/aoconnect";
+import aoconnect from "@permaweb/aoconnect";
 import { randomUUID } from 'crypto';
-import { text } from 'stream/consumers';
+
+import { logger } from './logger'
 
 let wallet: string;
 let id: string;
@@ -39,18 +31,16 @@ function init() {
   }
 }
 
-
-
 async function messageResult(tags: Record<string, string>, data: any) {
   try {
-    const messageId = await message({
+    const messageId = await aoconnect.message({
       process: PROCESS_ID,
       tags: Object.entries(tags).map(([name, value]) => ({ name, value })),
-      signer: createDataItemSigner(wallet),
+      signer: aoconnect.createDataItemSigner(wallet),
       data: JSON.stringify(data),
     });
   
-    const messageReturn = await result({
+    const messageReturn = await aoconnect.result({
       // the arweave TXID of the message
       message: messageId,
       // the arweave TXID of the process
@@ -66,7 +56,7 @@ async function messageResult(tags: Record<string, string>, data: any) {
     }
     throw new Error(messageReturn.Error)
   } catch (e) {
-    console.error(e);
+    logger.error(e)
     return {
       Output: null,
       Messages: null,
@@ -78,9 +68,9 @@ async function messageResult(tags: Record<string, string>, data: any) {
 
 async function dryrunResult(tags: Record<string, string>, data: any) {
   try {
-    const dryrunResult =  await dryrun({
+    const dryrunResult =  await aoconnect.dryrun({
       process: PROCESS_ID,
-      signer: createDataItemSigner(wallet),
+      signer: aoconnect.createDataItemSigner(wallet),
       tags: Object.entries(tags).map(([name, value]) => ({ name, value })),
       data: JSON.stringify(data)
     });
@@ -93,7 +83,7 @@ async function dryrunResult(tags: Record<string, string>, data: any) {
     }
     throw new Error(dryrunResult.Error)
   } catch (e) {
-    console.error(e);
+    logger.error(e);
     return {
       Output: null,
       Messages: null,
@@ -130,22 +120,24 @@ async function text2img(task: any) {
 }
 
 async function receiveTask(task: any, code: number, res: any) {
-  console.log("Receive Task", task.id, code, res)
-  const { Messages, Output, Error } = await messageResult({ Action: "Receive-Response" }, {
+  const resultRet = await messageResult({ Action: "Receive-Response" }, {
     taskID: task.id,
     code,
     data: res,
   })
-  console.log(Messages, Output, Error)
+  logger.debug(resultRet)
 }
 
 async function processTask() {
   const taskList: Record<string, any> = await fetchTasks(id)
   const tasks = Object.entries(taskList).map(([key, value]) => Object.assign(value, {id: key}))
+  logger.info("To Process Task " + tasks.length)
   if (tasks.length) {
     await acceptTask(tasks[0])
+    logger.info("Accepted Task " + tasks[0]?.id)
     try {
       const text2imgResponse = await text2img(tasks[0])
+      logger.info("Image Generated" + text2imgResponse.status)
       await receiveTask(tasks[0], text2imgResponse.status, text2imgResponse.data)
       return [
         tasks[0],
@@ -158,12 +150,13 @@ async function processTask() {
 }
 
 function intervalProcessTask() {
+  logger.info("Start Process Task Every 2s")
   processTask().then((result) => {
     if (result != null) {
-      console.log(`Task ${result[0].id} processed with status ${result[1]}`)
+      logger.info(`Task ${result[0].id} processed with status ${result[1]}`)
     }
   }).catch((e) => {
-    console.error(e)
+    logger.error(e)
   }).finally(() => {
     setTimeout(intervalProcessTask, 2000)
   })
