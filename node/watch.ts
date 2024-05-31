@@ -16,11 +16,11 @@ let id: string;
 
 function init() {
   wallet = JSON.parse(
-    readFileSync(join(__dirname, "../config/wallet.json")).toString(),
+    readFileSync(join(__dirname, "../config/wallet.json")).toString().trim(),
   );
   
   try {
-    id = readFileSync(join(__dirname, "../config/id")).toString();
+    id = readFileSync(join(__dirname, "../config/id")).toString().trim();
   } catch (e) {
     id = randomUUID();
     writeFileSync(join(__dirname, "../config/id"), id);
