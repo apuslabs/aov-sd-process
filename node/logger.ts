@@ -10,7 +10,13 @@ const dailyRotateFileTransport = new DailyRotateFile({
   maxSize: '20m',
   maxFiles: '14d',
   createSymlink: true,
-  symlinkName: 'log-current.log'
+  symlinkName: 'log-current.log',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.metadata(),
+    winston.format.errors({ stack: true }),
+    winston.format.json(),
+  ),
 });
 
 // 单独存储错误日志
@@ -22,7 +28,13 @@ const errorTransport = new DailyRotateFile({
   maxSize: '20m',
   maxFiles: '30d',
   createSymlink: true,
-  symlinkName: 'error-current.log'
+  symlinkName: 'error-current.log',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.metadata(),
+    winston.format.errors({ stack: true }),
+    winston.format.json(),
+  ),
 });
 
 const consoleTransport = new winston.transports.Console({
@@ -30,20 +42,14 @@ const consoleTransport = new winston.transports.Console({
   format: winston.format.combine(
     winston.format.colorize(),
     winston.format.simple(),
-    winston.format.metadata(),
     winston.format.timestamp(),
+    winston.format.metadata(),
   )
 });
 
 
 export const logger = winston.createLogger({
   level: "debug",
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.metadata(),
-    winston.format.errors({ stack: true }),
-    winston.format.json(),
-  ),
   transports: [
     dailyRotateFileTransport,
     errorTransport,
