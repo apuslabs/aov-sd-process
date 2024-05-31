@@ -102,7 +102,6 @@ Handlers.add(
 )
 
 AITask = AITask or {}
-FreeCredits = FreeCredits or {}
 
 MarketBalances = MarketBalances or {}
 
@@ -120,6 +119,11 @@ local bintutils = {
       return tonumber(a)
     end
   }
+
+local function SendFreeCredits(user)
+    if MarketBalances[user] == nil then MarketBalances[user] = "200" end
+end
+
 
 -- Text-To-Image
 -- Request Data: {"aiModelID":"xxx","params": {}}
@@ -159,21 +163,13 @@ Handlers.add(
             return
         end
         -- TODO: sort by gpu price
-        -- check free credits
-        local freeCredit = FreeCredits[msg.From]
-        if freeCredit == nil then FreeCredits[msg.From] = 200 end
-        if freeCredit > gpu.price then
-            FreeCredits[msg.From] = freeCredit - gpu.price
+        -- check token balance, if has no balance, send 200 free credits
+        SendFreeCredits(msg.From)
+        if bint(MarketBalances[msg.From]) < bint(gpu.price) then
+            Handlers.utils.reply("[Error] [403] " .. "Text-To-Image " .. requestData.aiModelID .. "Insufficient Balance")
             return
         else
-            -- check token balance
-            local balance = MarketBalances[msg.From] or 0
-            if bint(balance) < bint(gpu.price) then
-                Handlers.utils.reply("[Error] [403] " .. "Text-To-Image " .. requestData.aiModelID .. "Insufficient Balance")
-                return
-            else
-                MarketBalances[msg.From] = bintutils.subtract(balance, gpu.price)
-            end
+            MarketBalances[msg.From] = bintutils.subtract(MarketBalances[msg.From], gpu.price)
         end
         
         -- Send request to 0rbit
@@ -273,6 +269,8 @@ Handlers.add(
         -- check response error
         if data.code ~= 200 then
             record.ResponseError = data.error
+            -- check token balance
+            MarketBalances[record.From] = bintutils.subtract(MarketBalances[record.From], record.price)
             -- return money to user
             MarketBalances[record.Recipient] = bintutils.add(MarketBalances[record.Recipient], record.Price)
             resetRequestRecord(data.taskID)
@@ -280,7 +278,7 @@ Handlers.add(
             return
         else
             -- pay to gpu owner
-            Send({ Target = _TOKEN_ADDRESS, Action = "Transfer", Recipient = record.Recipient, Quantity = record.Price })
+            ao.send({ Target = _TOKEN_ADDRESS, Action = "Transfer", Recipient = record.Recipient, Quantity = tostring(record.Price) })
         end
         record.Status = "completed"
         record.ResponseData = data.data
@@ -334,11 +332,16 @@ Handlers.add("Charge", Handlers.utils.hasMatchingTag("Action", "Credit-Notice"),
     assert(type(msg.Quantity) == 'string', 'Quantity is required!')
     assert(type(msg.Sender) == 'string', 'Sender is required!')
     assert(msg.From == _TOKEN_ADDRESS, 'Only Accept Apus Token')
-    if not MarketBalances[msg.Sender] then MarketBalances[msg.Sender] = "0" end
+    SendFreeCredits(msg.Sender)
     MarketBalances[msg.Sender] = bintutils.add(MarketBalances[msg.Sender], msg.Quantity)
     ao.send({
         Target = msg.Sender,
         Action = "Deposit-Receiption",
         Quantity = msg.Quantity
     })
+end)
+
+Handlers.add("MarketBalances", Handlers.utils.hasMatchingTag("Action", "MarketBalances"), function(msg)
+    SendFreeCredits(msg.From)
+    Handlers.utils.reply(MarketBalances[msg.From])(msg)
 end)
