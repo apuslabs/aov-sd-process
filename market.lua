@@ -14,12 +14,12 @@ Handlers.add(
             return
         end
         local gpuModel = msg.Data
+        assert(type(msg.Data) == "string", "GPU Model Must be string")
         -- check gpu model id dulplicate
-        for _, model in ipairs(GPUModelList) do
-            if model == gpuModel then
-                Handlers.utils.reply("[Error] [400] " .. "Register GPU Model " .. gpuModel .. "Model ID Duplicate")(msg)
-                return
-            end
+        local modelExist = utils.find(function (model) return model == gpuModel end, GPUModelList)
+        if modelExist then
+            Handlers.utils.reply("[Error] [400] " .. "Register GPU Model " .. gpuModel .. "Model Duplicate")(msg)
+            return
         end
         table.insert(GPUModelList, gpuModel)
         Handlers.utils.reply("Register GPU Model Successfully " .. gpuModel)(msg)
@@ -33,23 +33,26 @@ Handlers.add(
     Handlers.utils.hasMatchingTag("Action", "Register-GPU"),
     function(msg)
         local gpu = json.decode(msg.Data)
-        -- check gpu data item nil
-        if not gpu.id or not gpu.gpumodel or not gpu.price then
-            Handlers.utils.reply("[Error] [400] " .. "Register GPU " .. gpu.id .. "Data Item Nil")(msg)
+        -- check gpu data item type
+        assert(type(gpu.id) == "string", "GPU ID Type Error")
+        if not IsUUIDv4(gpu.id) then
             return
         end
-        -- todo: check gpu data item type
-        -- check gpu id dulplicate
-        for _, g in ipairs(GPUList) do
-            if g.id == gpu.id then
-                Handlers.utils.reply("[Error] [400] " .. "Register GPU " .. gpu.id .. "ID Duplicate")(msg)
-                return
-            end
-        end
-        -- check gpu model
+        assert(type(gpu.gpumodel) == "string", "GPU Model Type Error")
+        assert(type(gpu.price) == "string", "GPU Price Type Error") -- bigint
+        -- check gpu model valid
         local modelExist = utils.find(function(model) return model == gpu.gpumodel end, GPUModelList)
         if not modelExist then
             Handlers.utils.reply("[Error] [400] " .. "Register GPU " .. gpu.id .. "Model Not Exist")(msg)
+            return
+        end
+        -- check gpu id dulplicate
+        local idExist = utils.find(function(gpu) return gpu.id == gpu.id end, GPUList)
+        if idExist then
+            -- Update GPU
+            for k, v in pairs(gpu) do
+                idExist[k] = v
+            end
             return
         end
         -- add busy flag and owner
@@ -70,21 +73,21 @@ Handlers.add(
             return
         end
         local aiModel = json.decode(msg.Data)
-        -- check model data item nil
-        if not aiModel.id or not aiModel.name or not aiModel.storageUrl or not aiModel.supportedGPUModel then
-            Handlers.utils.reply("[Error] [400] " .. "Register AI Model " .. aiModel.id .. "Data Item Nil")(msg)
-            return
-        end
         -- check model data item type
-        if type(aiModel.supportedGPUModel) ~= "table" then
-            Handlers.utils.reply("[Error] [400] " ..
-            "Register AI Model " .. aiModel.id .. "Supported GPU Model Type Error")(msg)
+        assert(type(aiModel.id) == "string", "AI Model ID Type Error")
+        if not IsUUIDv4(aiModel.id) then
             return
         end
+        assert(type(aiModel.name) == "string", "AI Model Name Type Error")
+        assert(type(aiModel.storageUrl) == "string", "AI Model Storage URL Type Error")
+        assert(type(aiModel.supportedGPUModel) == "table", "AI Model Supported GPU Model Type Error")
         -- check model id dulplicate
         local modelExist = utils.find(function(model) return model.id == aiModel.id end, AIModelList)
         if modelExist then
-            Handlers.utils.reply("[Error] [400] " .. "Register AI Model " .. aiModel.id .. "ID Duplicate")(msg)
+            -- Update Model
+            for k, v in pairs(aiModel) do
+                modelExist[k] = v
+            end
             return
         end
         -- check supported model exist

@@ -85,3 +85,10 @@ function IsProcessOwner(msg)
         return false
     end
 end
+
+-- Check if the string is a valid UUIDv4
+function IsUUIDv4(str)
+    assert(type(str) == "string", "str must be a string")
+    local pattern = "^[0-9a-fA-F]{8}%-[0-9a-fA-F]{4}%-4[0-9a-fA-F]{3}%-[89aAbB][0-9a-fA-F]{3}%-[0-9a-fA-F]{12}$"
+    return str:match(pattern) ~= nil
+end
