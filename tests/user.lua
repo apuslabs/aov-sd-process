@@ -16,11 +16,11 @@ Handlers.add("Text-To-Image", Handlers.utils.hasMatchingTag("Action", "Text-To-I
       width = 512,
       height = 512
     }
-    ao.send({
+    print(ao.send({
         Target = _Apus_Process_ID,
-        Tags = { Action = "Text-To-Image" },
+        Tags = { Action = "Text-To-Image", ["X-ID"] = "123" },
         Data = json.encode(requestData)
-    })
+    }))
   end
 )
 

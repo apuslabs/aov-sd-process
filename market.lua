@@ -79,8 +79,20 @@ Handlers.add(
             return
         end
         assert(type(aiModel.name) == "string", "AI Model Name Type Error")
-        assert(type(aiModel.storageUrl) == "string", "AI Model Storage URL Type Error")
+        -- assert(type(aiModel.storageUrl) == "string", "AI Model Storage URL Type Error")
         assert(type(aiModel.supportedGPUModel) == "table", "AI Model Supported GPU Model Type Error")
+        assert(type(aiModel.hash) == "string", "AI Model Hash Type Error")
+        -- check supported model exist
+        for _, supportedModel in ipairs(aiModel.supportedGPUModel) do
+            -- check supportedModel type
+            assert(type(supportedModel) == "string", "AI Model Supported Model Type Error")
+            local modelExist = utils.find(function(model) return model == supportedModel end, GPUModelList)
+            if not modelExist then
+                Handlers.utils.reply("[Error] [400] " ..
+                "Register AI Model " .. aiModel.id .. "Supported Model Not Exist")(msg)
+                return
+            end
+        end
         -- check model id dulplicate
         local modelExist = utils.find(function(model) return model.id == aiModel.id end, AIModelList)
         if modelExist then
@@ -89,21 +101,6 @@ Handlers.add(
                 modelExist[k] = v
             end
             return
-        end
-        -- check supported model exist
-        for _, supportedModel in ipairs(aiModel.supportedGPUModel) do
-            -- check supportedModel type
-            if type(supportedModel) ~= "string" then
-                Handlers.utils.reply("[Error] [400] " ..
-                "Register AI Model " .. aiModel.id .. "Supported Model Type Error")(msg)
-                return
-            end
-            local modelExist = utils.find(function(model) return model == supportedModel end, GPUModelList)
-            if not modelExist then
-                Handlers.utils.reply("[Error] [400] " ..
-                "Register AI Model " .. aiModel.id .. "Supported Model Not Exist")(msg)
-                return
-            end
         end
         table.insert(AIModelList, aiModel)
         Handlers.utils.reply("Register Model Successfully " .. aiModel.id)(msg)
@@ -196,7 +193,7 @@ Handlers.add(
         }
         -- find all X-[] fields in requestData and pass into AITask.Metadata
         for key, value in pairs(requestData) do
-            if key:match(key, "^X%-.+") then
+            if key:match("^X%-.+") then
                 AITask.Metadata[key] = value
             end
         end
