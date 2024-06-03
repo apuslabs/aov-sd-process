@@ -10,6 +10,9 @@ Handlers.add(
     "Register-GPU-Model",
     Handlers.utils.hasMatchingTag("Action", "Register-GPU-Model"),
     function(msg)
+        if not IsProcessOwner(msg) then
+            return
+        end
         local gpuModel = msg.Data
         -- check gpu model id dulplicate
         for _, model in ipairs(GPUModelList) do
@@ -63,6 +66,9 @@ Handlers.add(
     "Register-AI-Model",
     Handlers.utils.hasMatchingTag("Action", "Register-AI-Model"),
     function(msg)
+        if not IsProcessOwner(msg) then
+            return
+        end
         local aiModel = json.decode(msg.Data)
         -- check model data item nil
         if not aiModel.id or not aiModel.name or not aiModel.storageUrl or not aiModel.supportedGPUModel then

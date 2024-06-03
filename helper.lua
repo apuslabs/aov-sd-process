@@ -75,3 +75,13 @@ function ObjectFilter(obj, filter)
     end
     return result
 end
+
+-- Check is process owner
+function IsProcessOwner(msg)
+    if msg.From == ao.id then
+        return true
+    else
+        Handlers.utils.reply("[Error] [401] " .. "You are not the owner of this process.")(msg)
+        return false
+    end
+end
