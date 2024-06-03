@@ -2,6 +2,7 @@ import * as dotenv from 'dotenv'
 dotenv.config()
 
 const PROCESS_ID = process.env.PROCESS_ID!
+const BASE_URL = "https://af00460591bbc19d-3001-proxy.us-south-1.infrai.com"
 
 import { readFileSync, writeFileSync } from "fs";
 import { join } from "path"
@@ -13,6 +14,11 @@ import { logger } from './logger'
 
 let wallet: string;
 let id: string;
+
+const modelMap: Record<string, {
+  name: string
+  canrun: boolean
+}> = {}
 
 function init() {
   wallet = JSON.parse(
@@ -113,11 +119,37 @@ async function acceptTask(task: any) {
   })
 }
 
-async function text2img(task: any) {
+function text2img(task: any) {
+  const canrun = modelMap[task.AIModelID]?.canrun
+  if (!canrun) {
+    throw new Error("Model not available")
+  }
   return axios.post<{
     images: string[]
-  // }>('http://localhost:3001/sdapi/v1/txt2img', task)
-  }>('https://af00460591bbc19d-3001-proxy.us-south-1.infrai.com/sdapi/v1/txt2img', task)
+  }>(`${BASE_URL}/sdapi/v1/txt2img`, {
+    ...task.RequestParams,
+    // https://github.com/AUTOMATIC1111/stable-diffusion-webui/discussions/3734
+    override_settings: {
+      sd_model_checkpoint: modelMap[task.AIModelID]?.name
+    }
+  })
+}
+
+function refreshCheckpoints() {
+  return axios.post(`${BASE_URL}/sdapi/v1/refresh-checkpoints`)
+}
+
+function getSDModels() {
+  return axios.get(`${BASE_URL}/sdapi/v1/sd-models`).then(res => res.data)
+}
+
+async function getAOModels() {
+  const { Messages, Error } = await dryrunResult({ Action: "Get-AI-Model-List" }, {})
+  if (Error != null) {
+    logger.error(Error)
+  } else {
+    return JSON.parse(Messages?.[0].Data ?? "[]")
+  }
 }
 
 async function receiveTask(task: any, code: number, res: any) {
@@ -138,7 +170,7 @@ async function processTask() {
     logger.info("Accepted Task " + tasks[0]?.id)
     try {
       logger.debug("Processing Task " + JSON.stringify(tasks[0]))
-      const text2imgResponse = await text2img(tasks[0].RequestParams)
+      const text2imgResponse = await text2img(tasks[0])
       logger.info("Image Generated" + text2imgResponse.status)
       await receiveTask(tasks[0], text2imgResponse.status, text2imgResponse.data)
       return [
@@ -149,6 +181,35 @@ async function processTask() {
       await receiveTask(tasks[0], 500, e)
     }
   }
+}
+
+async function refreshModel() {
+  try {
+    await refreshCheckpoints()
+    const sdModels: any[] = await getSDModels()
+    const aoModels: any[] = await getAOModels()
+    for (const model of aoModels) {
+      modelMap[model.id] = {
+        name: model.name,
+        canrun: sdModels.findIndex((sdModel) => sdModel.title === model.name) !== -1
+      }
+    }
+    logger.debug("ModelMap: " + JSON.stringify(modelMap))
+  } catch(e) {
+    logger.error(e)
+  }
+}
+
+async function intervalRefreshModel() {
+  logger.info("Start Refresh Model Every 1 hour")
+  refreshModel()
+  setInterval(() => {
+    refreshModel().then(() => {
+      logger.info("Model Refreshed")
+    }).catch((e) => {
+      logger.error(e)
+    })
+  }, 3600000)
 }
 
 function intervalProcessTask() {
@@ -168,6 +229,7 @@ async function main() {
   init()
   logger.info("GPU ID " + id)
   intervalProcessTask()
+  intervalRefreshModel()
 }
 
 main()
