@@ -116,7 +116,8 @@ async function acceptTask(task: any) {
 async function text2img(task: any) {
   return axios.post<{
     images: string[]
-  }>('http://localhost:3001/sdapi/v1/txt2img', task)
+  // }>('http://localhost:3001/sdapi/v1/txt2img', task)
+  }>('https://af00460591bbc19d-3001-proxy.us-south-1.infrai.com/sdapi/v1/txt2img', task)
 }
 
 async function receiveTask(task: any, code: number, res: any) {
@@ -136,7 +137,8 @@ async function processTask() {
     await acceptTask(tasks[0])
     logger.info("Accepted Task " + tasks[0]?.id)
     try {
-      const text2imgResponse = await text2img(tasks[0])
+      logger.debug("Processing Task " + JSON.stringify(tasks[0]))
+      const text2imgResponse = await text2img(tasks[0].RequestParams)
       logger.info("Image Generated" + text2imgResponse.status)
       await receiveTask(tasks[0], text2imgResponse.status, text2imgResponse.data)
       return [
