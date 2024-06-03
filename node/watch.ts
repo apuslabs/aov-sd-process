@@ -2,7 +2,8 @@ import * as dotenv from 'dotenv'
 dotenv.config()
 
 const PROCESS_ID = process.env.PROCESS_ID!
-const BASE_URL = "https://af00460591bbc19d-3001-proxy.us-south-1.infrai.com"
+// const BASE_URL = "https://af00460591bbc19d-3001-proxy.us-south-1.infrai.com"
+const BASE_URL = "http://localhost:3001"
 
 import { readFileSync, writeFileSync } from "fs";
 import { join } from "path"
