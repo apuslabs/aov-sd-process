@@ -191,8 +191,15 @@ Handlers.add(
             Recipient = gpu.owner,
             Price = gpu.price,
             Status = "pending",
-            RequestParams = requestData.params
+            RequestParams = requestData.params,
+            Metadata = {}
         }
+        -- find all X-[] fields in requestData and pass into AITask.Metadata
+        for key, value in pairs(requestData) do
+            if key:match(key, "^X%-.+") then
+                AITask.Metadata[key] = value
+            end
+        end
         Handlers.utils.reply("Text-To-Image " .. requestData.aiModelID .. "GPU " .. gpu.id)(msg)
         ao.send({
             Target = gpu.owner,
@@ -294,7 +301,8 @@ Handlers.add(
         resetRequestRecord(data.taskID)
         Send({ Target = record.From, Action = "Text-To-Image-Response", Data = json.encode({
             taskID = data.taskID,
-            data = data.data
+            data = data.data,
+            metadata = record.Metadata
         })})
     end
 )
