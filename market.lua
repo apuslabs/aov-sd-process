@@ -16,7 +16,7 @@ Handlers.add(
         local gpuModel = msg.Data
         assert(type(msg.Data) == "string", "GPU Model Must be string")
         -- check gpu model id dulplicate
-        local modelExist = utils.find(function (model) return model == gpuModel end, GPUModelList)
+        local modelExist = utils.find(function(model) return model == gpuModel end, GPUModelList)
         assert(not modelExist, "Model Duplicate")
         table.insert(GPUModelList, gpuModel)
         Handlers.utils.reply("Register GPU Model Successfully " .. gpuModel)(msg)
@@ -103,19 +103,19 @@ AITask = AITask or {}
 MarketBalances = MarketBalances or {}
 
 local bintutils = {
-    add = function (a,b) 
-      return tostring(bint(a) + bint(b))
+    add = function(a, b)
+        return tostring(bint(a) + bint(b))
     end,
-    subtract = function (a,b)
-      return tostring(bint(a) - bint(b))
+    subtract = function(a, b)
+        return tostring(bint(a) - bint(b))
     end,
-    toBalanceValue = function (a)
-      return tostring(bint(a))
+    toBalanceValue = function(a)
+        return tostring(bint(a))
     end,
-    toNumber = function (a)
-      return tonumber(a)
+    toNumber = function(a)
+        return tonumber(a)
     end
-  }
+}
 
 local function SendFreeCredits(user)
     if MarketBalances[user] == nil then MarketBalances[user] = "200" end
@@ -153,7 +153,7 @@ Handlers.add(
         SendFreeCredits(msg.From)
         assert(bint(MarketBalances[msg.From]) >= bint(gpu.price), "Insufficient Balance")
         MarketBalances[msg.From] = bintutils.subtract(MarketBalances[msg.From], gpu.price)
-        
+
         -- Send request to 0rbit
         local requestID = GenerateRandomID(8)
         -- set request record
@@ -187,25 +187,25 @@ Handlers.add(
 -- Accept-Task
 -- TODO cron task to clean pending & processing task
 Handlers.add(
-  "Accept-Task",
-  Handlers.utils.hasMatchingTag("Action", "Accept-Task"),
-  function(msg)
-      local data = json.decode(msg.Data)
-      local record = AITask[data.taskID]
-      -- check request record exist
-      assert(record, "Record Not Exist")
-      -- check request record status
-      assert(record.Status == "pending", "Record Status Not Pending")
-      -- check gpu owner match
-      assert(record.Recipient == msg.Owner, "Owner Not Match")
-      -- check gpu busy: TODO: single thread -> multi thread
+    "Accept-Task",
+    Handlers.utils.hasMatchingTag("Action", "Accept-Task"),
+    function(msg)
+        local data = json.decode(msg.Data)
+        local record = AITask[data.taskID]
+        -- check request record exist
+        assert(record, "Record Not Exist")
+        -- check request record status
+        assert(record.Status == "pending", "Record Status Not Pending")
+        -- check gpu owner match
+        assert(record.Recipient == msg.Owner, "Owner Not Match")
+        -- check gpu busy: TODO: single thread -> multi thread
         local gpu = utils.find(function(gpu) return gpu.id == record.GPUID end, GPUList)
         assert(gpu, "GPU Not Exist")
 
-      -- set status
-      record.Status = "processing"
-      Handlers.utils.reply("Accept-Task " .. data.taskID)(msg)
-  end
+        -- set status
+        record.Status = "processing"
+        Handlers.utils.reply("Accept-Task " .. data.taskID)(msg)
+    end
 )
 
 local function finishWorkingTask(taskID)
@@ -242,21 +242,26 @@ Handlers.add(
             return
         else
             -- pay to gpu owner
-            ao.send({ Target = _TOKEN_ADDRESS, Action = "Transfer", Recipient = record.Recipient, Quantity = tostring(record.Price) })
+            ao.send({ Target = _TOKEN_ADDRESS, Action = "Transfer", Recipient = record.Recipient, Quantity = tostring(
+            record.Price) })
         end
         record.Status = "completed"
         record.ResponseData = data.data
         finishWorkingTask(data.taskID)
-        Send({ Target = record.From, Action = "Text-To-Image-Response", Data = json.encode({
-            taskID = data.taskID,
-            data = data.data,
-            metadata = record.Metadata
-        })})
+        Send({
+            Target = record.From,
+            Action = "Text-To-Image-Response",
+            Data = json.encode({
+                taskID = data.taskID,
+                data = data.data,
+                metadata = record.Metadata
+            })
+        })
     end
 )
 
 Handlers.add("Get-GPU-List", Handlers.utils.hasMatchingTag("Action", "Get-GPU-List"), function(msg)
-  local UserGPUList = {}
+    local UserGPUList = {}
     for _, gpu in pairs(GPUList) do
         if gpu.owner == msg.From then
             table.insert(UserGPUList, gpu)
@@ -299,9 +304,9 @@ Handlers.add("Get-AI-Task", Handlers.utils.hasMatchingTag("Action", "Get-AI-Task
     assert(task, "Task Not Exist")
     Handlers.utils.reply(json.encode(task))(msg)
 end)
-  
 
-Handlers.add("Charge", Handlers.utils.hasMatchingTag("Action", "Credit-Notice"),function (msg)
+
+Handlers.add("Charge", Handlers.utils.hasMatchingTag("Action", "Credit-Notice"), function(msg)
     assert(type(msg.Quantity) == 'string', 'Quantity is required!')
     assert(type(msg.Sender) == 'string', 'Sender is required!')
     assert(msg.From == _TOKEN_ADDRESS, 'Only Accept Apus Token')
