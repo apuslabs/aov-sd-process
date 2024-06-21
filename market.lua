@@ -50,7 +50,8 @@ Handlers.add(
             return
         end
         -- add busy flag and owner
-        gpu.busy = false
+        gpu.workingTask = 0
+        gpu.maxTask = 1
         gpu.owner = msg.Owner
         table.insert(GPUList, gpu)
         Handlers.utils.reply("Register GPU Server Successfully " .. gpu.id)
@@ -142,10 +143,11 @@ Handlers.add(
                 local modelSupport = utils.find(
                     function(model) return model == gpu.gpumodel end, aiModel.supportedGPUModel
                 )
-                return not gpu.busy and modelSupport ~= nil
+                return gpu.workingTask < gpu.maxTask and modelSupport ~= nil
             end, GPUList
         )
         assert(gpu, "No Available GPU")
+        gpu.workingTask = gpu.workingTask + 1
         -- TODO: sort by gpu price
         -- check token balance, if has no balance, send 200 free credits
         SendFreeCredits(msg.From)
@@ -199,20 +201,18 @@ Handlers.add(
       -- check gpu busy: TODO: single thread -> multi thread
         local gpu = utils.find(function(gpu) return gpu.id == record.GPUID end, GPUList)
         assert(gpu, "GPU Not Exist")
-        assert(not gpu.busy, "GPU Busy")
 
       -- set status
       record.Status = "processing"
-      gpu.busy = true
       Handlers.utils.reply("Accept-Task " .. data.taskID)(msg)
   end
 )
 
-local function resetRequestRecord(taskID)
+local function finishWorkingTask(taskID)
     -- set gpu unbusy
     local gpu = utils.find(function(gpu) return gpu.id == AITask[taskID].GPUID end, GPUList)
     if gpu then
-        gpu.busy = false
+        gpu.workingTask = gpu.workingTask - 1
     end
 end
 
@@ -236,7 +236,7 @@ Handlers.add(
             MarketBalances[record.From] = bintutils.subtract(MarketBalances[record.From], record.Price)
             -- return money to user
             MarketBalances[record.Recipient] = bintutils.add(MarketBalances[record.Recipient], record.Price)
-            resetRequestRecord(data.taskID)
+            finishWorkingTask(data.taskID)
             record.Status = "failed"
             Handlers.utils.reply("Response Error" .. data.taskID)(msg)
             return
@@ -246,7 +246,7 @@ Handlers.add(
         end
         record.Status = "completed"
         record.ResponseData = data.data
-        resetRequestRecord(data.taskID)
+        finishWorkingTask(data.taskID)
         Send({ Target = record.From, Action = "Text-To-Image-Response", Data = json.encode({
             taskID = data.taskID,
             data = data.data,
