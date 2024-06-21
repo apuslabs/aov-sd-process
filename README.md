@@ -62,11 +62,10 @@ The following code contains the Handler that will make the SD Inference request 
 Handlers.add("Text-To-Image", Handlers.utils.hasMatchingTag("Action", "Text-To-Image"), function(msg)
     ao.send({
         Target = _APUS,
-        Tags = { Action = "Text-To-Image" },
+        Tags = { Action = "Text-To-Image", ["X-ID"] = "xxxxxxx01" },
         Data = json.encode({
           aiModelID = "096875a5-ed88-47ae-b420-895da26b4c53",
           params = RequestParams,
-          ["X-ID"] = "xxxxxxx01",
         })
     })
   end

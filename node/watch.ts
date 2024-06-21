@@ -2,7 +2,7 @@ import * as dotenv from 'dotenv'
 dotenv.config()
 
 const PROCESS_ID = process.env.PROCESS_ID!
-// const BASE_URL = "https://af00460591bbc19d-3001-proxy.us-south-1.infrai.com"
+// const BASE_URL = "https://fb47e7743187cc02-3001-proxy.us-south-1.infrai.com"
 const BASE_URL = "http://localhost:3001"
 
 import { readFileSync, writeFileSync } from "fs";
@@ -121,7 +121,7 @@ async function acceptTask(task: any) {
 }
 
 function text2img(task: any) {
-  const canrun = modelMap[task.AIModelID]?.canrun
+  const canrun = modelMap?.[task.AIModelID]?.canrun
   if (!canrun) {
     throw new Error("Model not available")
   }
@@ -159,7 +159,7 @@ async function receiveTask(task: any, code: number, res: any) {
     code,
     data: res,
   })
-  logger.debug(resultRet)
+  logger.debug(JSON.stringify(resultRet))
 }
 
 async function processTask() {
@@ -172,13 +172,14 @@ async function processTask() {
     try {
       logger.debug("Processing Task " + JSON.stringify(tasks[0]))
       const text2imgResponse = await text2img(tasks[0])
-      logger.info("Image Generated" + text2imgResponse.status)
+      logger.info("Image Generated " + text2imgResponse.status)
       await receiveTask(tasks[0], text2imgResponse.status, text2imgResponse.data)
       return [
         tasks[0],
         text2imgResponse.status,
       ] as const
     } catch (e) {
+      logger.error("Process Error: " + (e instanceof Error) ? (e as Error).message : JSON.stringify(e))
       await receiveTask(tasks[0], 500, e)
     }
   }

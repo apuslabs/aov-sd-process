@@ -17,10 +17,7 @@ Handlers.add(
         assert(type(msg.Data) == "string", "GPU Model Must be string")
         -- check gpu model id dulplicate
         local modelExist = utils.find(function (model) return model == gpuModel end, GPUModelList)
-        if modelExist then
-            Handlers.utils.reply("[Error] [400] " .. "Register GPU Model " .. gpuModel .. "Model Duplicate")(msg)
-            return
-        end
+        assert(not modelExist, "Model Duplicate")
         table.insert(GPUModelList, gpuModel)
         Handlers.utils.reply("Register GPU Model Successfully " .. gpuModel)(msg)
     end
@@ -42,10 +39,7 @@ Handlers.add(
         assert(type(gpu.price) == "string", "GPU Price Type Error") -- bigint
         -- check gpu model valid
         local modelExist = utils.find(function(model) return model == gpu.gpumodel end, GPUModelList)
-        if not modelExist then
-            Handlers.utils.reply("[Error] [400] " .. "Register GPU " .. gpu.id .. "Model Not Exist")(msg)
-            return
-        end
+        assert(modelExist, "GPU Model Not Exist")
         -- check gpu id dulplicate
         local idExist = utils.find(function(gpu) return gpu.id == gpu.id end, GPUList)
         if idExist then
@@ -87,11 +81,7 @@ Handlers.add(
             -- check supportedModel type
             assert(type(supportedModel) == "string", "AI Model Supported Model Type Error")
             local modelExist = utils.find(function(model) return model == supportedModel end, GPUModelList)
-            if not modelExist then
-                Handlers.utils.reply("[Error] [400] " ..
-                "Register AI Model " .. aiModel.id .. "Supported Model Not Exist")(msg)
-                return
-            end
+            assert(modelExist, "Supported Model Not Exist")
         end
         -- check model id dulplicate
         local modelExist = utils.find(function(model) return model.id == aiModel.id end, AIModelList)
@@ -139,22 +129,13 @@ Handlers.add(
     function(msg)
         local requestData = json.decode(msg.Data)
         -- check request data item nil
-        if not requestData.aiModelID or not requestData.params then
-            Handlers.utils.reply("[Error] [400] " .. "Text-To-Image " .. requestData.aiModelID .. "Data Item Nil")(msg)
-            return
-        end
+        assert(requestData.aiModelID and requestData.params, "Data Item Nil")
         -- check request data item type
         -- remark: let real ai server do the data struct check
-        if type(requestData.params) ~= "table" then
-            Handlers.utils.reply("[Error] [400] " .. "Text-To-Image " .. requestData.aiModelID .. "Params Type Error")(msg)
-            return
-        end
+        assert(type(requestData.params) == "table", "Params Type Error")
         -- check ai model exist
         local aiModel = utils.find(function(model) return model.id == requestData.aiModelID end, AIModelList)
-        if not aiModel then
-            Handlers.utils.reply("[Error] [400] " .. "Text-To-Image " .. requestData.aiModelID .. "Model Not Exist")(msg)
-            return
-        end
+        assert(aiModel, "Model Not Exist")
         -- find supported and unbusy gpu
         local gpu = utils.find(
             function(gpu)
@@ -164,19 +145,12 @@ Handlers.add(
                 return not gpu.busy and modelSupport ~= nil
             end, GPUList
         )
-        if not gpu then
-            Handlers.utils.reply("[Error] [403] " .. "Text-To-Image " .. requestData.aiModelID .. "No Available GPU")(msg)
-            return
-        end
+        assert(gpu, "No Available GPU")
         -- TODO: sort by gpu price
         -- check token balance, if has no balance, send 200 free credits
         SendFreeCredits(msg.From)
-        if bint(MarketBalances[msg.From]) < bint(gpu.price) then
-            Handlers.utils.reply("[Error] [403] " .. "Text-To-Image " .. requestData.aiModelID .. "Insufficient Balance")
-            return
-        else
-            MarketBalances[msg.From] = bintutils.subtract(MarketBalances[msg.From], gpu.price)
-        end
+        assert(bint(MarketBalances[msg.From]) >= bint(gpu.price), "Insufficient Balance")
+        MarketBalances[msg.From] = bintutils.subtract(MarketBalances[msg.From], gpu.price)
         
         -- Send request to 0rbit
         local requestID = GenerateRandomID(8)
@@ -197,7 +171,7 @@ Handlers.add(
                 AITask.Metadata[key] = value
             end
         end
-        Handlers.utils.reply("Text-To-Image " .. requestData.aiModelID .. "GPU " .. gpu.id)(msg)
+        Handlers.utils.reply("Text-To-Image Successfully: " .. requestData.aiModelID .. " GPU " .. gpu.id)(msg)
         ao.send({
             Target = gpu.owner,
             Action = "Text-To-Image",
@@ -217,30 +191,15 @@ Handlers.add(
       local data = json.decode(msg.Data)
       local record = AITask[data.taskID]
       -- check request record exist
-      if not record then
-          Handlers.utils.reply("[Error] [404] " .. "Accept-Task " .. data.taskID .. " Record Not Exist")(msg)
-          return
-      end
+      assert(record, "Record Not Exist")
       -- check request record status
-      if record.Status ~= "pending" then
-          Handlers.utils.reply("[Error] [403] " .. "Accept-Task " .. data.taskID .. " Status Not Pending")(msg)
-          return
-      end
+      assert(record.Status == "pending", "Record Status Not Pending")
       -- check gpu owner match
-    --   if record.Recipient ~= msg.Owner then
-    --       Handlers.utils.reply("[Error] [403] " .. "Accept-Task " .. data.taskID .. " Owner Not Match " .. record.Recipient .. " " .. msg.Owner)(msg)
-    --       return
-    --   end
+      assert(record.Recipient == msg.Owner, "Owner Not Match")
       -- check gpu busy: TODO: single thread -> multi thread
         local gpu = utils.find(function(gpu) return gpu.id == record.GPUID end, GPUList)
-        if not gpu then
-            Handlers.utils.reply("[Error] [404] " .. "Accept-Task " .. data.taskID .. " GPU Not Exist")(msg)
-            return
-        end
-        if gpu.busy then
-            Handlers.utils.reply("[Error] [403] " .. "Accept-Task " .. data.taskID .. " GPU Busy")(msg)
-            return
-        end
+        assert(gpu, "GPU Not Exist")
+        assert(not gpu.busy, "GPU Busy")
 
       -- set status
       record.Status = "processing"
@@ -265,29 +224,21 @@ Handlers.add(
         local data = json.decode(msg.Data)
         local record = AITask[data.taskID]
         -- check record exist
-        if not record then
-            Handlers.utils.reply("[Error] [404] " .. "Receive-Response " .. data.taskID .. "Record Not Exist")(msg)
-            return
-        end
+        assert(record, "Record Not Exist")
         -- check owner match
-        -- if record.Recipient ~= msg.Owner then
-        --     Handlers.utils.reply("[Error] [403] " .. "Receive-Response " .. data.taskID .. "Owner Not Match")(msg)
-        --     return
-        -- end
+        assert(record.Recipient == msg.Owner, "Owner Not Match")
         -- check status
-        if record.Status ~= "processing" then
-            Handlers.utils.reply("[Error] [403] " .. "Receive-Response " .. data.taskID .. "Status Not Processing")(msg)
-            return
-        end
+        assert(record.Status == "processing", "Record Status Not Processing")
         -- check response error
         if data.code ~= 200 then
             record.ResponseError = data.error
             -- check token balance
-            MarketBalances[record.From] = bintutils.subtract(MarketBalances[record.From], record.price)
+            MarketBalances[record.From] = bintutils.subtract(MarketBalances[record.From], record.Price)
             -- return money to user
             MarketBalances[record.Recipient] = bintutils.add(MarketBalances[record.Recipient], record.Price)
             resetRequestRecord(data.taskID)
-            Handlers.utils.reply("[Error] [500] " .. "Receive-Response " .. data.error)(msg)
+            record.Status = "failed"
+            Handlers.utils.reply("Response Error" .. data.taskID)(msg)
             return
         else
             -- pay to gpu owner
@@ -339,6 +290,14 @@ Handlers.add("Get-AI-Task-List", Handlers.utils.hasMatchingTag("Action", "Get-AI
         UserTaskList = ObjectFilter(UserTaskList, function(_, task) return task.GPUID == req.GPUID end)
     end
     Handlers.utils.reply(json.encode(UserTaskList))(msg)
+end)
+
+Handlers.add("Get-AI-Task", Handlers.utils.hasMatchingTag("Action", "Get-AI-Task"), function(msg)
+    local req = JSONDecode(msg.Data)
+    assert(type(req.taskID) == "string", "Task ID is required!")
+    local task = AITask[req.taskID]
+    assert(task, "Task Not Exist")
+    Handlers.utils.reply(json.encode(task))(msg)
 end)
   
 
